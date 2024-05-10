@@ -12,10 +12,9 @@
        01  MAX-AGE              PIC 99 VALUE ZEROS.
        01  MEDIAN-AGE           PIC 99 VALUE ZEROS.
        01  COUNTRY              PIC X(50) VALUE SPACES.
-       01  GENDER               PIC X(10) VALUE SPACES.
-       01  GENDER-COUNT         PIC 9(5) VALUE ZEROS.
-       01  TOTAL-COUNT          PIC 9(5) VALUE ZEROS.
-       01  GENDER-PROPORTION    PIC 999.99 VALUE ZEROS.
+       01  MALE-PROP            PIC 999.99 VALUE ZEROS.
+       01  FEMALE-PROP          PIC 999.99 VALUE ZEROS.
+       01  OTHER-PROP           PIC 999.99 VALUE ZEROS.
        01  REPORT-LINE          PIC X(80) VALUE SPACES.
        01  DASH-LINE            PIC X(80) VALUE ALL '-'.
 
@@ -113,46 +112,48 @@
                END-EXEC
 
                IF SQLCODE = 0 THEN
-                   PERFORM 2210-GET-GENDER-COUNTS
-                       THRU 2210-GET-GENDER-COUNTS-END
+                   DISPLAY 'Country: ' COUNTRY
+                   DISPLAY DASH-LINE
+                   PERFORM 2210-CALCULATE-GENDER-PROPORTIONS
+                       THRU 2210-CALCULATE-GENDER-PROPORTIONS-END
                END-IF
            END-PERFORM.
 
            EXEC SQL CLOSE COUNTRY_CUR END-EXEC.
        2200-GET-GENDER-PROPORTIONS-END.
       ******************************************************************
-       2210-GET-GENDER-COUNTS.
+       2210-CALCULATE-GENDER-PROPORTIONS.
            EXEC SQL
-               SELECT gender, COUNT(*)
-               INTO :GENDER, :GENDER-COUNT
+               SELECT
+                   COALESCE(CAST(SUM(CASE WHEN gender = 'Male' 
+                   THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
+                   AS DECIMAL(6,2)), 0),
+                   COALESCE(CAST(SUM(CASE WHEN gender = 'Female' 
+                   THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
+                   AS DECIMAL(6,2)), 0),
+                   COALESCE(CAST(SUM(CASE WHEN gender NOT IN ('Male', 
+                   'Female') THEN 1 ELSE 0 END) * 100.0 / 
+                   NULLIF(COUNT(*), 0) AS DECIMAL(6,2)), 0)
+               INTO :MALE-PROP, :FEMALE-PROP, :OTHER-PROP
                FROM databank
                WHERE country = :COUNTRY
-               GROUP BY gender
            END-EXEC
 
-           DISPLAY 'Country: ' COUNTRY.
-           DISPLAY DASH-LINE.
+           IF SQLCODE = 0 THEN
+               STRING 'Gender: Male, Proportion: ', MALE-PROP, ' %'
+                      DELIMITED BY SIZE
+                      INTO REPORT-LINE
+               DISPLAY REPORT-LINE
 
-           PERFORM VARYING GENDER FROM 'Male', 'Female', 'Other'
-               UNTIL GENDER = 'Other'
-               EXEC SQL
-                   SELECT COUNT(*)
-                   INTO :TOTAL-COUNT
-                   FROM databank
-                   WHERE country = :COUNTRY
-               END-EXEC
+               STRING 'Gender: Female, Proportion: ', FEMALE-PROP, ' %'
+                      DELIMITED BY SIZE
+                      INTO REPORT-LINE
+               DISPLAY REPORT-LINE
 
-               IF TOTAL-COUNT > 0 THEN
-                   COMPUTE GENDER-PROPORTION = (GENDER-COUNT / 
-                           TOTAL-COUNT) * 100
-                   STRING 'Gender: ', GENDER,
-                          ', Proportion: ', GENDER-PROPORTION, ' %'
-                          DELIMITED BY SIZE
-                          INTO REPORT-LINE
-                   DISPLAY REPORT-LINE
-               END-IF
-           END-PERFORM.
-
-           DISPLAY DASH-LINE.
-       2210-GET-GENDER-COUNTS-END.
+               STRING 'Gender: Other, Proportion: ', OTHER-PROP, ' %'
+                      DELIMITED BY SIZE
+                      INTO REPORT-LINE
+               DISPLAY REPORT-LINE
+           END-IF.
+       2210-CALCULATE-GENDER-PROPORTIONS-END.
       ******************************************************************

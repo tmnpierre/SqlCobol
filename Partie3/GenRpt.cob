@@ -12,10 +12,9 @@
        01  MAX-AGE              PIC 99 VALUE ZEROS.
        01  MEDIAN-AGE           PIC 99 VALUE ZEROS.
        01  COUNTRY              PIC X(50) VALUE SPACES.
-       01  GENDER               PIC X(10) VALUE SPACES.
-       01  GENDER-COUNT         PIC 9(5) VALUE ZEROS.
-       01  TOTAL-COUNT          PIC 9(5) VALUE ZEROS.
-       01  GENDER-PROPORTION    PIC 999.99 VALUE ZEROS.
+       01  MALE-PROP            PIC 999.99 VALUE ZEROS.
+       01  FEMALE-PROP          PIC 999.99 VALUE ZEROS.
+       01  OTHER-PROP           PIC 999.99 VALUE ZEROS.
        01  REPORT-LINE          PIC X(80) VALUE SPACES.
        01  DASH-LINE            PIC X(80) VALUE ALL '-'.
 
@@ -46,13 +45,15 @@ OCESQL  &  "atabank".
 OCESQL     02  FILLER PIC X(1) VALUE X"00".
 OCESQL*
 OCESQL 01  SQ0004.
-OCESQL     02  FILLER PIC X(074) VALUE "SELECT gender, COUNT( * ) FROM"
-OCESQL  &  " databank WHERE country = $1 GROUP BY gender".
-OCESQL     02  FILLER PIC X(1) VALUE X"00".
-OCESQL*
-OCESQL 01  SQ0005.
-OCESQL     02  FILLER PIC X(050) VALUE "SELECT COUNT( * ) FROM databan"
-OCESQL  &  "k WHERE country = $1".
+OCESQL     02  FILLER PIC X(256) VALUE "SELECT COALESCE(CAST(SUM(CASE "
+OCESQL  &  "WHEN gender = 'Male' THEN 1 ELSE 0 END) * 100.0 / NULLIF(C"
+OCESQL  &  "OUNT( * ), 0) AS DECIMAL(6, 2)), 0), COALESCE(CAST(SUM(CAS"
+OCESQL  &  "E WHEN gender = 'Female' THEN 1 ELSE 0 END) * 100.0 / NULL"
+OCESQL  &  "IF(COUNT( * ), 0) AS DECIMAL(6, 2)), 0), COALESCE(CA".
+OCESQL     02  FILLER PIC X(155) VALUE "ST(SUM(CASE WHEN gender NOT IN"
+OCESQL  &  " ('Male', 'Female') THEN 1 ELSE 0 END) * 100.0 / NULLIF(CO"
+OCESQL  &  "UNT( * ), 0) AS DECIMAL(6, 2)), 0) FROM databank WHERE cou"
+OCESQL  &  "ntry = $1".
 OCESQL     02  FILLER PIC X(1) VALUE X"00".
 OCESQL*
        PROCEDURE DIVISION.
@@ -219,8 +220,10 @@ OCESQL     CALL "OCESQLEndSQL"
 OCESQL     END-CALL
 
                IF SQLCODE = 0 THEN
-                   PERFORM 2210-GET-GENDER-COUNTS
-                       THRU 2210-GET-GENDER-COUNTS-END
+                   DISPLAY 'Country: ' COUNTRY
+                   DISPLAY DASH-LINE
+                   PERFORM 2210-CALCULATE-GENDER-PROPORTIONS
+                       THRU 2210-CALCULATE-GENDER-PROPORTIONS-END
                END-IF
            END-PERFORM.
 
@@ -232,27 +235,41 @@ OCESQL     END-CALL
 OCESQL    .
        2200-GET-GENDER-PROPORTIONS-END.
       ******************************************************************
-       2210-GET-GENDER-COUNTS.
+       2210-CALCULATE-GENDER-PROPORTIONS.
 OCESQL*    EXEC SQL
-OCESQL*        SELECT gender, COUNT(*)
-OCESQL*        INTO :GENDER, :GENDER-COUNT
+OCESQL*        SELECT
+OCESQL*            COALESCE(CAST(SUM(CASE WHEN gender = 'Male' 
+OCESQL*            THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
+OCESQL*            AS DECIMAL(6,2)), 0),
+OCESQL*            COALESCE(CAST(SUM(CASE WHEN gender = 'Female' 
+OCESQL*            THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
+OCESQL*            AS DECIMAL(6,2)), 0),
+OCESQL*            COALESCE(CAST(SUM(CASE WHEN gender NOT IN ('Male', 
+OCESQL*            'Female') THEN 1 ELSE 0 END) * 100.0 / 
+OCESQL*            NULLIF(COUNT(*), 0) AS DECIMAL(6,2)), 0)
+OCESQL*        INTO :MALE-PROP, :FEMALE-PROP, :OTHER-PROP
 OCESQL*        FROM databank
 OCESQL*        WHERE country = :COUNTRY
-OCESQL*        GROUP BY gender
 OCESQL*    END-EXEC
 OCESQL     CALL "OCESQLStartSQL"
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetResultParams" USING
-OCESQL          BY VALUE 16
-OCESQL          BY VALUE 10
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE GENDER
 OCESQL     END-CALL
 OCESQL     CALL "OCESQLSetResultParams" USING
 OCESQL          BY VALUE 1
 OCESQL          BY VALUE 5
 OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE GENDER-COUNT
+OCESQL          BY REFERENCE MALE-PROP
+OCESQL     END-CALL
+OCESQL     CALL "OCESQLSetResultParams" USING
+OCESQL          BY VALUE 1
+OCESQL          BY VALUE 5
+OCESQL          BY VALUE 0
+OCESQL          BY REFERENCE FEMALE-PROP
+OCESQL     END-CALL
+OCESQL     CALL "OCESQLSetResultParams" USING
+OCESQL          BY VALUE 1
+OCESQL          BY VALUE 5
+OCESQL          BY VALUE 0
+OCESQL          BY REFERENCE OTHER-PROP
 OCESQL     END-CALL
 OCESQL     CALL "OCESQLSetSQLParams" USING
 OCESQL          BY VALUE 16
@@ -264,58 +281,28 @@ OCESQL     CALL "OCESQLExecSelectIntoOne" USING
 OCESQL          BY REFERENCE SQLCA
 OCESQL          BY REFERENCE SQ0004
 OCESQL          BY VALUE 1
-OCESQL          BY VALUE 2
+OCESQL          BY VALUE 3
 OCESQL     END-CALL
 OCESQL     CALL "OCESQLEndSQL"
 OCESQL     END-CALL
 
-           DISPLAY 'Country: ' COUNTRY.
-           DISPLAY DASH-LINE.
+           IF SQLCODE = 0 THEN
+               STRING 'Gender: Male, Proportion: ', MALE-PROP, ' %'
+                      DELIMITED BY SIZE
+                      INTO REPORT-LINE
+               DISPLAY REPORT-LINE
 
-           PERFORM VARYING GENDER FROM 'Male', 'Female', 'Other'
-               UNTIL GENDER = 'Other'
-OCESQL*        EXEC SQL
-OCESQL*            SELECT COUNT(*)
-OCESQL*            INTO :TOTAL-COUNT
-OCESQL*            FROM databank
-OCESQL*            WHERE country = :COUNTRY
-OCESQL*        END-EXEC
-OCESQL     CALL "OCESQLStartSQL"
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetResultParams" USING
-OCESQL          BY VALUE 1
-OCESQL          BY VALUE 5
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE TOTAL-COUNT
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetSQLParams" USING
-OCESQL          BY VALUE 16
-OCESQL          BY VALUE 50
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE COUNTRY
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLExecSelectIntoOne" USING
-OCESQL          BY REFERENCE SQLCA
-OCESQL          BY REFERENCE SQ0005
-OCESQL          BY VALUE 1
-OCESQL          BY VALUE 1
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLEndSQL"
-OCESQL     END-CALL
+               STRING 'Gender: Female, Proportion: ', FEMALE-PROP, ' %'
+                      DELIMITED BY SIZE
+                      INTO REPORT-LINE
+               DISPLAY REPORT-LINE
 
-               IF TOTAL-COUNT > 0 THEN
-                   COMPUTE GENDER-PROPORTION = (GENDER-COUNT / 
-                           TOTAL-COUNT) * 100
-                   STRING 'Gender: ', GENDER,
-                          ', Proportion: ', GENDER-PROPORTION, ' %'
-                          DELIMITED BY SIZE
-                          INTO REPORT-LINE
-                   DISPLAY REPORT-LINE
-               END-IF
-           END-PERFORM.
-
-           DISPLAY DASH-LINE.
-       2210-GET-GENDER-COUNTS-END.
+               STRING 'Gender: Other, Proportion: ', OTHER-PROP, ' %'
+                      DELIMITED BY SIZE
+                      INTO REPORT-LINE
+               DISPLAY REPORT-LINE
+           END-IF.
+       2210-CALCULATE-GENDER-PROPORTIONS-END.
       ******************************************************************
       ******************************************************************
       ******************************************************************

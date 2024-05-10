@@ -1,0 +1,26 @@
+Generating report...
+Age Statistics: 
+Minimum Age: 15
+Maximum Age: 45
+Median Age: 29
+--------------------------------------------------------------------------------
+Country: SWITZERLAND                                       
+--------------------------------------------------------------------------------
+Gender: Male, Proportion: 000000 %                                              
+Gender: Female, Proportion: 000000 %                                            
+Gender: Other, Proportion: 000000 %%                                            
+Country: LUXEMBOURG                                        
+--------------------------------------------------------------------------------
+Gender: Male, Proportion: 000000 %%%                                            
+Gender: Female, Proportion: 000000 %                                            
+Gender: Other, Proportion: 000000 %%                                            
+Country: FRANCE                                            
+--------------------------------------------------------------------------------
+Gender: Male, Proportion: 000000 %%%                                            
+Gender: Female, Proportion: 000000 %                                            
+Gender: Other, Proportion: 000000 %%                                            
+Country: BELGIUM                                           
+--------------------------------------------------------------------------------
+Gender: Male, Proportion: 000000 %%%                                            
+Gender: Female, Proportion: 000000 %                                            
+Gender: Other, Proportion: 000000 %%                                            
