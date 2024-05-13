@@ -12,9 +12,12 @@
        01  MAX-AGE              PIC 99 VALUE ZEROS.
        01  MEDIAN-AGE           PIC 99 VALUE ZEROS.
        01  COUNTRY              PIC X(50) VALUE SPACES.
-       01  MALE-PROP            PIC 999.99 VALUE ZEROS.
-       01  FEMALE-PROP          PIC 999.99 VALUE ZEROS.
-       01  OTHER-PROP           PIC 999.99 VALUE ZEROS.
+       01  MALE-PROP            PIC 9999 VALUE ZEROS.
+       01  MALE-PROP-DISP       PIC Z99,99.
+       01  FEMALE-PROP          PIC 9999 VALUE ZEROS.
+       01  FEMALE-PROP-DISP     PIC Z99,99.
+       01  OTHER-PROP           PIC 9999 VALUE ZEROS.
+       01  OTHER-PROP-DISP      PIC Z99,99.
        01  REPORT-LINE          PIC X(80) VALUE SPACES.
        01  DASH-LINE            PIC X(80) VALUE ALL '-'.
 
@@ -99,8 +102,9 @@
       ******************************************************************
        2200-GET-GENDER-PROPORTIONS.
            EXEC SQL DECLARE COUNTRY_CUR CURSOR FOR
-               SELECT DISTINCT country
-               FROM databank
+               SELECT country, male_proportion, female_proportion,
+                    other_proportion
+               FROM gender_proportions
            END-EXEC.
 
            EXEC SQL OPEN COUNTRY_CUR END-EXEC.
@@ -108,52 +112,38 @@
            PERFORM WITH TEST AFTER UNTIL SQLCODE = +100
                EXEC SQL
                    FETCH COUNTRY_CUR
-                   INTO :COUNTRY
+                   INTO :COUNTRY, :MALE-PROP, :FEMALE-PROP, :OTHER-PROP
                END-EXEC
 
                IF SQLCODE = 0 THEN
                    DISPLAY 'Country: ' COUNTRY
                    DISPLAY DASH-LINE
-                   PERFORM 2210-CALCULATE-GENDER-PROPORTIONS
-                       THRU 2210-CALCULATE-GENDER-PROPORTIONS-END
+                   MOVE MALE-PROP TO MALE-PROP-DISP
+                   MOVE FEMALE-PROP TO FEMALE-PROP-DISP
+                   MOVE OTHER-PROP TO OTHER-PROP-DISP
+                   PERFORM 2210-DISPLAY-GENDER-PROPORTIONS
+                       THRU 2210-DISPLAY-GENDER-PROPORTIONS-END
+                   DISPLAY DASH-LINE
                END-IF
            END-PERFORM.
 
            EXEC SQL CLOSE COUNTRY_CUR END-EXEC.
        2200-GET-GENDER-PROPORTIONS-END.
       ******************************************************************
-       2210-CALCULATE-GENDER-PROPORTIONS.
-           EXEC SQL
-               SELECT
-                   COALESCE(CAST(SUM(CASE WHEN gender = 'Male' 
-                   THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
-                   AS DECIMAL(6,2)), 0),
-                   COALESCE(CAST(SUM(CASE WHEN gender = 'Female' 
-                   THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
-                   AS DECIMAL(6,2)), 0),
-                   COALESCE(CAST(SUM(CASE WHEN gender NOT IN ('Male', 
-                   'Female') THEN 1 ELSE 0 END) * 100.0 / 
-                   NULLIF(COUNT(*), 0) AS DECIMAL(6,2)), 0)
-               INTO :MALE-PROP, :FEMALE-PROP, :OTHER-PROP
-               FROM databank
-               WHERE country = :COUNTRY
-           END-EXEC
+       2210-DISPLAY-GENDER-PROPORTIONS.
+           STRING 'Gender: Male, Proportion: ', MALE-PROP-DISP, ' %'
+                  DELIMITED BY SIZE
+                  INTO REPORT-LINE
+           DISPLAY REPORT-LINE
 
-           IF SQLCODE = 0 THEN
-               STRING 'Gender: Male, Proportion: ', MALE-PROP, ' %'
-                      DELIMITED BY SIZE
-                      INTO REPORT-LINE
-               DISPLAY REPORT-LINE
+           STRING 'Gender: Female, Proportion: ', FEMALE-PROP-DISP, ' %'
+                  DELIMITED BY SIZE
+                  INTO REPORT-LINE
+           DISPLAY REPORT-LINE
 
-               STRING 'Gender: Female, Proportion: ', FEMALE-PROP, ' %'
-                      DELIMITED BY SIZE
-                      INTO REPORT-LINE
-               DISPLAY REPORT-LINE
-
-               STRING 'Gender: Other, Proportion: ', OTHER-PROP, ' %'
-                      DELIMITED BY SIZE
-                      INTO REPORT-LINE
-               DISPLAY REPORT-LINE
-           END-IF.
-       2210-CALCULATE-GENDER-PROPORTIONS-END.
+           STRING 'Gender: Other, Proportion: ', OTHER-PROP-DISP, ' %'
+                  DELIMITED BY SIZE
+                  INTO REPORT-LINE
+           DISPLAY REPORT-LINE.
+       2210-DISPLAY-GENDER-PROPORTIONS-END.
       ******************************************************************

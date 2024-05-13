@@ -12,9 +12,12 @@
        01  MAX-AGE              PIC 99 VALUE ZEROS.
        01  MEDIAN-AGE           PIC 99 VALUE ZEROS.
        01  COUNTRY              PIC X(50) VALUE SPACES.
-       01  MALE-PROP            PIC 999.99 VALUE ZEROS.
-       01  FEMALE-PROP          PIC 999.99 VALUE ZEROS.
-       01  OTHER-PROP           PIC 999.99 VALUE ZEROS.
+       01  MALE-PROP            PIC 9999 VALUE ZEROS.
+       01  MALE-PROP-DISP       PIC Z99,99.
+       01  FEMALE-PROP          PIC 9999 VALUE ZEROS.
+       01  FEMALE-PROP-DISP     PIC Z99,99.
+       01  OTHER-PROP           PIC 9999 VALUE ZEROS.
+       01  OTHER-PROP-DISP      PIC Z99,99.
        01  REPORT-LINE          PIC X(80) VALUE SPACES.
        01  DASH-LINE            PIC X(80) VALUE ALL '-'.
 
@@ -40,20 +43,9 @@ OCESQL  &  "k".
 OCESQL     02  FILLER PIC X(1) VALUE X"00".
 OCESQL*
 OCESQL 01  SQ0003.
-OCESQL     02  FILLER PIC X(037) VALUE "SELECT DISTINCT country FROM d"
-OCESQL  &  "atabank".
-OCESQL     02  FILLER PIC X(1) VALUE X"00".
-OCESQL*
-OCESQL 01  SQ0004.
-OCESQL     02  FILLER PIC X(256) VALUE "SELECT COALESCE(CAST(SUM(CASE "
-OCESQL  &  "WHEN gender = 'Male' THEN 1 ELSE 0 END) * 100.0 / NULLIF(C"
-OCESQL  &  "OUNT( * ), 0) AS DECIMAL(6, 2)), 0), COALESCE(CAST(SUM(CAS"
-OCESQL  &  "E WHEN gender = 'Female' THEN 1 ELSE 0 END) * 100.0 / NULL"
-OCESQL  &  "IF(COUNT( * ), 0) AS DECIMAL(6, 2)), 0), COALESCE(CA".
-OCESQL     02  FILLER PIC X(155) VALUE "ST(SUM(CASE WHEN gender NOT IN"
-OCESQL  &  " ('Male', 'Female') THEN 1 ELSE 0 END) * 100.0 / NULLIF(CO"
-OCESQL  &  "UNT( * ), 0) AS DECIMAL(6, 2)), 0) FROM databank WHERE cou"
-OCESQL  &  "ntry = $1".
+OCESQL     02  FILLER PIC X(092) VALUE "SELECT country, male_proportio"
+OCESQL  &  "n, female_proportion, other_proportion FROM gender_proport"
+OCESQL  &  "ions".
 OCESQL     02  FILLER PIC X(1) VALUE X"00".
 OCESQL*
        PROCEDURE DIVISION.
@@ -184,8 +176,9 @@ OCESQL     END-CALL.
       ******************************************************************
        2200-GET-GENDER-PROPORTIONS.
 OCESQL*    EXEC SQL DECLARE COUNTRY_CUR CURSOR FOR
-OCESQL*        SELECT DISTINCT country
-OCESQL*        FROM databank
+OCESQL*        SELECT country, male_proportion, female_proportion,
+OCESQL*             other_proportion
+OCESQL*        FROM gender_proportions
 OCESQL*    END-EXEC.
 OCESQL     CALL "OCESQLCursorDeclare" USING
 OCESQL          BY REFERENCE SQLCA
@@ -202,7 +195,7 @@ OCESQL     END-CALL.
            PERFORM WITH TEST AFTER UNTIL SQLCODE = +100
 OCESQL*        EXEC SQL
 OCESQL*            FETCH COUNTRY_CUR
-OCESQL*            INTO :COUNTRY
+OCESQL*            INTO :COUNTRY, :MALE-PROP, :FEMALE-PROP, :OTHER-PROP
 OCESQL*        END-EXEC
 OCESQL     CALL "OCESQLStartSQL"
 OCESQL     END-CALL
@@ -211,6 +204,24 @@ OCESQL          BY VALUE 16
 OCESQL          BY VALUE 50
 OCESQL          BY VALUE 0
 OCESQL          BY REFERENCE COUNTRY
+OCESQL     END-CALL
+OCESQL     CALL "OCESQLSetResultParams" USING
+OCESQL          BY VALUE 1
+OCESQL          BY VALUE 4
+OCESQL          BY VALUE 0
+OCESQL          BY REFERENCE MALE-PROP
+OCESQL     END-CALL
+OCESQL     CALL "OCESQLSetResultParams" USING
+OCESQL          BY VALUE 1
+OCESQL          BY VALUE 4
+OCESQL          BY VALUE 0
+OCESQL          BY REFERENCE FEMALE-PROP
+OCESQL     END-CALL
+OCESQL     CALL "OCESQLSetResultParams" USING
+OCESQL          BY VALUE 1
+OCESQL          BY VALUE 4
+OCESQL          BY VALUE 0
+OCESQL          BY REFERENCE OTHER-PROP
 OCESQL     END-CALL
 OCESQL     CALL "OCESQLCursorFetchOne" USING
 OCESQL          BY REFERENCE SQLCA
@@ -222,8 +233,12 @@ OCESQL     END-CALL
                IF SQLCODE = 0 THEN
                    DISPLAY 'Country: ' COUNTRY
                    DISPLAY DASH-LINE
-                   PERFORM 2210-CALCULATE-GENDER-PROPORTIONS
-                       THRU 2210-CALCULATE-GENDER-PROPORTIONS-END
+                   MOVE MALE-PROP TO MALE-PROP-DISP
+                   MOVE FEMALE-PROP TO FEMALE-PROP-DISP
+                   MOVE OTHER-PROP TO OTHER-PROP-DISP
+                   PERFORM 2210-DISPLAY-GENDER-PROPORTIONS
+                       THRU 2210-DISPLAY-GENDER-PROPORTIONS-END
+                   DISPLAY DASH-LINE
                END-IF
            END-PERFORM.
 
@@ -235,74 +250,22 @@ OCESQL     END-CALL
 OCESQL    .
        2200-GET-GENDER-PROPORTIONS-END.
       ******************************************************************
-       2210-CALCULATE-GENDER-PROPORTIONS.
-OCESQL*    EXEC SQL
-OCESQL*        SELECT
-OCESQL*            COALESCE(CAST(SUM(CASE WHEN gender = 'Male' 
-OCESQL*            THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
-OCESQL*            AS DECIMAL(6,2)), 0),
-OCESQL*            COALESCE(CAST(SUM(CASE WHEN gender = 'Female' 
-OCESQL*            THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0) 
-OCESQL*            AS DECIMAL(6,2)), 0),
-OCESQL*            COALESCE(CAST(SUM(CASE WHEN gender NOT IN ('Male', 
-OCESQL*            'Female') THEN 1 ELSE 0 END) * 100.0 / 
-OCESQL*            NULLIF(COUNT(*), 0) AS DECIMAL(6,2)), 0)
-OCESQL*        INTO :MALE-PROP, :FEMALE-PROP, :OTHER-PROP
-OCESQL*        FROM databank
-OCESQL*        WHERE country = :COUNTRY
-OCESQL*    END-EXEC
-OCESQL     CALL "OCESQLStartSQL"
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetResultParams" USING
-OCESQL          BY VALUE 1
-OCESQL          BY VALUE 5
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE MALE-PROP
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetResultParams" USING
-OCESQL          BY VALUE 1
-OCESQL          BY VALUE 5
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE FEMALE-PROP
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetResultParams" USING
-OCESQL          BY VALUE 1
-OCESQL          BY VALUE 5
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE OTHER-PROP
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLSetSQLParams" USING
-OCESQL          BY VALUE 16
-OCESQL          BY VALUE 50
-OCESQL          BY VALUE 0
-OCESQL          BY REFERENCE COUNTRY
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLExecSelectIntoOne" USING
-OCESQL          BY REFERENCE SQLCA
-OCESQL          BY REFERENCE SQ0004
-OCESQL          BY VALUE 1
-OCESQL          BY VALUE 3
-OCESQL     END-CALL
-OCESQL     CALL "OCESQLEndSQL"
-OCESQL     END-CALL
+       2210-DISPLAY-GENDER-PROPORTIONS.
+           STRING 'Gender: Male, Proportion: ', MALE-PROP-DISP, ' %'
+                  DELIMITED BY SIZE
+                  INTO REPORT-LINE
+           DISPLAY REPORT-LINE
 
-           IF SQLCODE = 0 THEN
-               STRING 'Gender: Male, Proportion: ', MALE-PROP, ' %'
-                      DELIMITED BY SIZE
-                      INTO REPORT-LINE
-               DISPLAY REPORT-LINE
+           STRING 'Gender: Female, Proportion: ', FEMALE-PROP-DISP, ' %'
+                  DELIMITED BY SIZE
+                  INTO REPORT-LINE
+           DISPLAY REPORT-LINE
 
-               STRING 'Gender: Female, Proportion: ', FEMALE-PROP, ' %'
-                      DELIMITED BY SIZE
-                      INTO REPORT-LINE
-               DISPLAY REPORT-LINE
-
-               STRING 'Gender: Other, Proportion: ', OTHER-PROP, ' %'
-                      DELIMITED BY SIZE
-                      INTO REPORT-LINE
-               DISPLAY REPORT-LINE
-           END-IF.
-       2210-CALCULATE-GENDER-PROPORTIONS-END.
+           STRING 'Gender: Other, Proportion: ', OTHER-PROP-DISP, ' %'
+                  DELIMITED BY SIZE
+                  INTO REPORT-LINE
+           DISPLAY REPORT-LINE.
+       2210-DISPLAY-GENDER-PROPORTIONS-END.
       ******************************************************************
       ******************************************************************
       ******************************************************************

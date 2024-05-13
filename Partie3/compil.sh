@@ -1,5 +1,7 @@
 #!/bin/bash
 
+psql -d country -U cobol -f gender_proportions.sql
+
 export COB_LDFLAGS=-Wl,--no-as-needed
 export COBCPY=./Copybook
 

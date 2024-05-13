@@ -6,21 +6,25 @@ Median Age: 29
 --------------------------------------------------------------------------------
 Country: SWITZERLAND                                       
 --------------------------------------------------------------------------------
-Gender: Male, Proportion: 000000 %                                              
-Gender: Female, Proportion: 000000 %                                            
-Gender: Other, Proportion: 000000 %%                                            
+Gender: Male, Proportion:  00,00 %                                              
+Gender: Female, Proportion:  50,00 %                                            
+Gender: Other, Proportion:  50,00 %%                                            
+--------------------------------------------------------------------------------
 Country: LUXEMBOURG                                        
 --------------------------------------------------------------------------------
-Gender: Male, Proportion: 000000 %%%                                            
-Gender: Female, Proportion: 000000 %                                            
-Gender: Other, Proportion: 000000 %%                                            
+Gender: Male, Proportion:  40,00 %%%                                            
+Gender: Female, Proportion:  40,00 %                                            
+Gender: Other, Proportion:  20,00 %%                                            
+--------------------------------------------------------------------------------
 Country: FRANCE                                            
 --------------------------------------------------------------------------------
-Gender: Male, Proportion: 000000 %%%                                            
-Gender: Female, Proportion: 000000 %                                            
-Gender: Other, Proportion: 000000 %%                                            
+Gender: Male, Proportion:  47,00 %%%                                            
+Gender: Female, Proportion:  42,00 %                                            
+Gender: Other, Proportion:  10,00 %%                                            
+--------------------------------------------------------------------------------
 Country: BELGIUM                                           
 --------------------------------------------------------------------------------
-Gender: Male, Proportion: 000000 %%%                                            
-Gender: Female, Proportion: 000000 %                                            
-Gender: Other, Proportion: 000000 %%                                            
+Gender: Male, Proportion:  50,00 %%%                                            
+Gender: Female, Proportion:  50,00 %                                            
+Gender: Other, Proportion:  00,00 %%                                            
+--------------------------------------------------------------------------------
