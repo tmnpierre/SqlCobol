@@ -48,6 +48,33 @@ OCESQL  &  "n, female_proportion, other_proportion FROM gender_proport"
 OCESQL  &  "ions".
 OCESQL     02  FILLER PIC X(1) VALUE X"00".
 OCESQL*
+OCESQL 01  SQ0004.
+OCESQL     02  FILLER PIC X(039) VALUE "DROP TABLE IF EXISTS gender_pr"
+OCESQL  &  "oportions".
+OCESQL     02  FILLER PIC X(1) VALUE X"00".
+OCESQL*
+OCESQL 01  SQ0005.
+OCESQL     02  FILLER PIC X(163) VALUE "CREATE TABLE gender_proportion"
+OCESQL  &  "s ( country VARCHAR(50) PRIMARY KEY, male_proportion NUMER"
+OCESQL  &  "IC(5, 2), female_proportion NUMERIC(5, 2), other_proportio"
+OCESQL  &  "n NUMERIC(5, 2) )".
+OCESQL     02  FILLER PIC X(1) VALUE X"00".
+OCESQL*
+OCESQL 01  SQ0007.
+OCESQL     02  FILLER PIC X(256) VALUE "WITH gender_counts AS ( SELECT"
+OCESQL  &  " country, COUNT( * ) FILTER (WHERE gender = 'Male') AS mal"
+OCESQL  &  "e_count, COUNT( * ) FILTER (WHERE gender = 'Female') AS fe"
+OCESQL  &  "male_count, COUNT( * ) FILTER (WHERE gender NOT IN ('Male'"
+OCESQL  &  ", 'Female')) AS other_count, COUNT( * ) AS total_cou".
+OCESQL     02  FILLER PIC X(256) VALUE "nt FROM databank GROUP BY coun"
+OCESQL  &  "try ) INSERT INTO gender_proportions (country, male_propor"
+OCESQL  &  "tion, female_proportion, other_proportion) SELECT country,"
+OCESQL  &  " ROUND(male_count * 100.0 / NULLIF(total_count, 0), 2), RO"
+OCESQL  &  "UND(female_count * 100.0 / NULLIF(total_count, 0), 2".
+OCESQL     02  FILLER PIC X(076) VALUE "), ROUND(other_count * 100.0 /"
+OCESQL  &  " NULLIF(total_count, 0), 2) FROM gender_counts".
+OCESQL     02  FILLER PIC X(1) VALUE X"00".
+OCESQL*
        PROCEDURE DIVISION.
        1000-MAIN-START.
 OCESQL*    EXEC SQL
@@ -67,6 +94,9 @@ OCESQL     END-CALL.
                PERFORM 1001-ERROR-RTN-START
                    THRU 1001-ERROR-RTN-END
            END-IF.
+
+           PERFORM 3000-SETUP-GENDER-PROPORTIONS-TABLE
+               THRU 3000-SETUP-GENDER-PROPORTIONS-TABLE-END.
 
            PERFORM 2000-GENERATE-REPORT
                THRU 2000-GENERATE-REPORT-END.
@@ -266,6 +296,64 @@ OCESQL    .
                   INTO REPORT-LINE
            DISPLAY REPORT-LINE.
        2210-DISPLAY-GENDER-PROPORTIONS-END.
+      ******************************************************************
+       3000-SETUP-GENDER-PROPORTIONS-TABLE.
+OCESQL*    EXEC SQL
+OCESQL*        DROP TABLE IF EXISTS gender_proportions
+OCESQL*    END-EXEC.
+OCESQL     CALL "OCESQLExec" USING
+OCESQL          BY REFERENCE SQLCA
+OCESQL          BY REFERENCE SQ0004
+OCESQL     END-CALL.
+
+OCESQL*    EXEC SQL
+OCESQL*        CREATE TABLE gender_proportions (
+OCESQL*            country VARCHAR(50) PRIMARY KEY,
+OCESQL*            male_proportion NUMERIC(5, 2),
+OCESQL*            female_proportion NUMERIC(5, 2),
+OCESQL*            other_proportion NUMERIC(5, 2)
+OCESQL*        )
+OCESQL*    END-EXEC.
+OCESQL     CALL "OCESQLExec" USING
+OCESQL          BY REFERENCE SQLCA
+OCESQL          BY REFERENCE SQ0005
+OCESQL     END-CALL.
+
+OCESQL*    EXEC SQL
+OCESQL*        WITH gender_counts AS (
+OCESQL*            SELECT
+OCESQL*                country,
+OCESQL*                COUNT(*) FILTER (WHERE gender = 'Male') 
+OCESQL*                    AS male_count,
+OCESQL*                COUNT(*) FILTER (WHERE gender = 'Female') 
+OCESQL*                    AS female_count,
+OCESQL*                COUNT(*) FILTER 
+OCESQL*                    (WHERE gender NOT IN ('Male', 'Female')) 
+OCESQL*                    AS other_count,
+OCESQL*                COUNT(*) AS total_count
+OCESQL*            FROM
+OCESQL*                databank
+OCESQL*            GROUP BY
+OCESQL*                country
+OCESQL*        )
+OCESQL*        INSERT INTO gender_proportions 
+OCESQL*            (country, male_proportion, female_proportion, 
+OCESQL*             other_proportion)
+OCESQL*        SELECT
+OCESQL*            country,
+OCESQL*            ROUND(male_count * 100.0 / 
+OCESQL*                NULLIF(total_count, 0), 2),
+OCESQL*            ROUND(female_count * 100.0 / 
+OCESQL*                NULLIF(total_count, 0), 2),
+OCESQL*            ROUND(other_count * 100.0 / 
+OCESQL*                NULLIF(total_count, 0), 2)
+OCESQL*        FROM gender_counts
+OCESQL*    END-EXEC.
+OCESQL     CALL "OCESQLExec" USING
+OCESQL          BY REFERENCE SQLCA
+OCESQL          BY REFERENCE SQ0007
+OCESQL     END-CALL.
+       3000-SETUP-GENDER-PROPORTIONS-TABLE-END.
       ******************************************************************
       ******************************************************************
       ******************************************************************
